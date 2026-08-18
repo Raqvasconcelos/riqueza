@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="pt-PT">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Painel de Controle de Gastos</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* bg-gray-100 */
+        }
+        /* Custom scrollbar for better aesthetics */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f1f1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #c1c1c1; 
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8; 
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
+        .fade-in {
+            animation: fadeIn 0.3s ease-in-out;
+        }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body class="text-gray-800 antialiased min-h-screen p-4 md:p-8">
+
+    <div class="max-w-7xl mx-auto space-y-6">
+        
+        <!-- Header -->
+        <header class="flex flex-col md:flex-row justify-between items-center bg-white p-6 rounded-2xl shadow-sm mb-6">
+            <div>
+                <h1 class="text-3xl font-bold text-gray-900 flex items-center gap-3">
+                    <i class="fas fa-wallet text-indigo-600"></i>
+                    Finanças Pessoais
+                </h1>
+                <p class="text-gray-500 mt-1">Seu painel de controle financeiro inteligente</p>
+            </div>
+            
+            <div class="mt-4 md:mt-0 flex items-center bg-indigo-50 p-4 rounded-xl border border-indigo-100">
+                <div class="mr-4">
+                    <label for="rendimento" class="block text-sm font-medium text-indigo-800 mb-1">Rendimento Mensal Líquido</label>
+                    <div class="relative rounded-md shadow-sm">
+                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                            <span class="text-gray-500 sm:text-sm">€</span>
+                        </div>
+                        <input type="number" name="rendimento" id="rendimento" value="2500" class="focus:ring-indigo-500 focus:border-indigo-500 block w-full pl-8 pr-12 sm:text-lg border-gray-300 rounded-md py-2 font-semibold text-gray-900 bg-white" placeholder="0.00" onchange="updateDashboard()">
+                    </div>
+                </div>
+                <div class="text-right">
+                    <p class="text-xs text-indigo-600 uppercase font-bold tracking-wider">Saldo Restante</p>
+                    <p id="saldoAtual" class="text-2xl font-bold text-indigo-900">€ 0.00</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Main Content Grid -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            
+            <!-- Left Column: Input Form & List -->
+            <div class="lg:col-span-1 space-y-6">
+                
+                <!-- Add Expense Card -->
+                <div class="glass-card rounded-2xl p-6">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center gap-2">
+                        <i class="fas fa-plus-circle text-emerald-500"></i>
+                        Novo Lançamento
+                    </h2>
+                    
+                    <form id="expenseForm" class="space-y-4" onsubmit="addExpense(event)">
+                        <div>
+                            <label for="descricao" class="block text-sm font-medium text-gray-700">Descrição</label>
+                            <input type="text" id="descricao" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="Ex: Supermercado Continente">
+                        </div>
+                        
+                        <div class="grid grid-cols-2 gap-4">
+                            <div>
+                                <label for="valor" class="block text-sm font-medium text-gray-700">Valor (€)</label>
+                                <input type="number" id="valor" step="0.01" min="0" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" placeholder="0.00">
+                            </div>
+                            
+                            <div>
+                                <label for="tipo" class="block text-sm font-medium text-gray-700">Classificação (50/30/20)</label>
+                                <select id="tipo" class="mt-1 block w-full bg-white border border-gray-300 rounded-md shadow-sm py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm" onchange="updateCategoryOptions()">
+                                    <option value="necessidade">Necessidade (50%)</option>
+                                    <option value="desejo">Desejo (30%)</option>
+                                    <option value="poupanca">Poupança/Dívida (20%)</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div>
+                            <label for="categoria" class="block text-sm font-medium text-gray-700">Categoria</label>
+                            <div class="flex mt-1 shadow-sm rounded-md">
+                                <select id="categoria" class="block w-full rounded-none rounded-l-md border border-gray-300 py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm bg-white">
+                                    <!-- Options populated by JS -->
+                                </select>
+                                <button type="button" onclick="showNewCategoryInput()" class="inline-flex items-center px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-500 hover:bg-gray-100 focus:outline-none">
+                                    <i class="fas fa-plus"></i>
+                                </button>
+                            </div>
+                            
+                            <!-- Hidden input for new category -->
+                            <div id="newCategoryDiv" class="hidden mt-2 flex shadow-sm rounded-md">
+                                <input type="text" id="novaCategoria" placeholder="Nome da nova categoria" class="block w-full rounded-none rounded-l-md border border-gray-300 py-2 px-3 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm">
+                                <button type="button" onclick="addNewCategory()" class="inline-flex items-center px-4 py-2 border border-transparent rounded-r-md shadow-sm text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500">
+                                    Adicionar
+                                </button>
+                                <button type="button" onclick="hideNewCategoryInput()" class="inline-flex items-center px-3 py-2 border border-l-0 border-gray-300 rounded-r-md bg-gray-50 text-gray-500 hover:bg-gray-100 focus:outline-none">
+                                    <i class="fas fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-emerald-600 hover:bg-emerald-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-emerald-500 transition-colors">
+                            Registrar Gasto
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Expense List Card -->
+                <div class="glass-card rounded-2xl p-6 flex flex-col h-[400px]">
+                    <h2 class="text-xl font-semibold mb-4 flex items-center justify-between">
+                        <span class="flex items-center gap-2">
+                            <i class="fas fa-list text-blue-500"></i> Lançamentos
+                        </span>
+                        <span id="totalGastosBadge" class="text-sm bg-blue-100 text-blue-800 py-1 px-2 rounded-full font-medium">
+                            Total: €0.00
+                        </span>
+                    </h2>
+                    
+                    <div class="overflow-y-auto flex-1 pr-2" id="expenseList">
+                        <!-- Expenses will be injected here via JS -->
+                        <div class="text-center text-gray-500 text-sm mt-10">
+                            Nenhum lançamento ainda. Adicione acima.
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Middle & Right Columns: Dashboard & Analytics -->
+            <div class="lg:col-span-2 space-y-6">
+                
+                <!-- 50/30/20 Rule Overview -->
+                <div class="glass-card rounded-2xl p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h2 class="text-xl font-semibold flex items-center gap-2">
+                            <i class="fas fa-balance-scale text-purple-500"></i> 
+                            Análise do Método 50/30/20
+                        </h2>
+                        <button onclick="showInfoModal()" class="text-gray-400 hover:text-indigo-500 transition-colors">
+                            <i class="fas fa-info-circle text-xl"></i>
+                        </button>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <!-- Necessities -->
+                        <div class="bg-red-50 rounded-xl p-4 border border-red-100">
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="font-medium text-red-800">Necessidades</h3>
+                                <span class="text-xs font-bold bg-red-200 text-red-800 px-2 py-1 rounded">Meta: 50%</span>
+                            </div>
+                            <div class="mb-2">
+                                <span class="text-2xl font-bold text-red-900" id="valNecessidades">€0.00</span>
+                                <span class="text-sm text-red-600 ml-1" id="pctNecessidades">(0%)</span>
+                            </div>
+                            <!-- Progress bar -->
+                            <div class="w-full bg-red-200 rounded-full h-2.5">
+                                <div id="barNecessidades" class="bg-red-600 h-2.5 rounded-full" style="width: 0%"></div>
+                            </div>
+                            <p id="statusNecessidades" class="text-xs mt-2 text-red-700 font-medium"></p>
+                        </div>
+
+                        <!-- Wants -->
+                        <div class="bg-yellow-50 rounded-xl p-4 border border-yellow-100">
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="font-medium text-yellow-800">Desejos</h3>
+                                <span class="text-xs font-bold bg-yellow-200 text-yellow-800 px-2 py-1 rounded">Meta: 30%</span>
+                            </div>
+                            <div class="mb-2">
+                                <span class="text-2xl font-bold text-yellow-900" id="valDesejos">€0.00</span>
+                                <span class="text-sm text-yellow-600 ml-1" id="pctDesejos">(0%)</span>
+                            </div>
+                            <!-- Progress bar -->
+                            <div class="w-full bg-yellow-200 rounded-full h-2.5">
+                                <div id="barDesejos" class="bg-yellow-500 h-2.5 rounded-full" style="width: 0%"></div>
+                            </div>
+                            <p id="statusDesejos" class="text-xs mt-2 text-yellow-700 font-medium"></p>
+                        </div>
+
+                        <!-- Savings -->
+                        <div class="bg-green-50 rounded-xl p-4 border border-green-100">
+                            <div class="flex justify-between items-start mb-2">
+                                <h3 class="font-medium text-green-800">Poupança</h3>
+                                <span class="text-xs font-bold bg-green-200 text-green-800 px-2 py-1 rounded">Meta: 20%</span>
+                            </div>
+                            <div class="mb-2">
+                                <span class="text-2xl font-bold text-green-900" id="valPoupanca">€0.00</span>
+                                <span class="text-sm text-green-600 ml-1" id="pctPoupanca">(0%)</span>
+                            </div>
+                            <!-- Progress bar -->
+                            <div class="w-full bg-green-200 rounded-full h-2.5">
+                                <div id="barPoupanca" class="bg-green-600 h-2.5 rounded-full" style="width: 0%"></div>
+                            </div>
+                            <p id="statusPoupanca" class="text-xs mt-2 text-green-700 font-medium"></p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <!-- Chart -->
+                    <div class="glass-card rounded-2xl p-6 flex flex-col items-center justify-center min-h-[300px]">
+                        <h2 class="text-lg font-semibold w-full text-left mb-4">Gastos por Categoria</h2>
+                        <div class="relative w-full max-w-[250px] aspect-square flex-1 flex items-center justify-center">
+                            <canvas id="categoryChart"></canvas>
+                            <!-- Placeholder when empty -->
+                            <div id="chartPlaceholder" class="absolute inset-0 flex items-center justify-center text-gray-400 text-sm text-center">
+                                Adicione gastos para ver o gráfico
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Recommendations & Summary -->
+                    <div class="glass-card rounded-2xl p-6 flex flex-col">
+                        <h2 class="text-lg font-semibold mb-4 flex items-center gap-2">
+                            <i class="fas fa-lightbulb text-amber-400"></i> Dicas do Consultor
+                        </h2>
+                        
+                        <div id="recommendationsList" class="space-y-3 flex-1 overflow-y-auto">
+                            <!-- Recommendations injected via JS -->
+                            <div class="p-3 bg-blue-50 text-blue-800 rounded-lg text-sm border border-blue-100">
+                                <strong>Bem-vindo!</strong> Insira seu rendimento e comece a adicionar gastos para receber recomendações personalizadas.
+                            </div>
+                        </div>
+
+                        <!-- Mini summary -->
+                        <div class="mt-4 pt-4 border-t border-gray-200">
+                            <h3 class="text-sm font-semibold text-gray-600 mb-2 uppercase tracking-wider">Top Gastos</h3>
+                            <div id="topGastos" class="text-sm text-gray-700 space-y-1">
+                                <!-- Top expenses injected via JS -->
+                                <span class="text-gray-400 italic">Sem dados suficientes.</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Info Modal (Hidden by default) -->
+    <div id="infoModal" class="fixed inset-0 bg-black bg-opacity-50 hidden items-center justify-center z-50 p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-2xl p-6 max-w-md w-full transform scale-95 transition-transform duration-300 shadow-2xl">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-900">O Método 50/30/20</h3>
+                <button onclick="closeInfoModal()" class="text-gray-400 hover:text-gray-600">
+                    <i class="fas fa-times text-xl"></i>
+                </button>
+            </div>
+            <div class="space-y-4 text-sm text-gray-600">
+                <p>Esta regra sugere dividir o seu rendimento líquido em três categorias principais:</p>
+                <ul class="space-y-2">
+                    <li class="flex items-start gap-2">
+                        <span class="bg-red-100 text-red-800 font-bold px-2 py-0.5 rounded text-xs mt-0.5">50%</span>
+                        <span><strong>Necessidades:</strong> Despesas essenciais (renda, alimentação, luz, água, saúde, transporte).</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="bg-yellow-100 text-yellow-800 font-bold px-2 py-0.5 rounded text-xs mt-0.5">30%</span>
+                        <span><strong>Desejos:</strong> Despesas não essenciais (lazer, jantares fora, subscrições, compras supérfluas).</span>
+                    </li>
+                    <li class="flex items-start gap-2">
+                        <span class="bg-green-100 text-green-800 font-bold px-2 py-0.5 rounded text-xs mt-0.5">20%</span>
+                        <span><strong>Poupança/Dívidas:</strong> Dinheiro destinado a fundo de emergência, investimentos ou amortização de dívidas.</span>
+                    </li>
+                </ul>
+                <p class="pt-2 text-xs italic text-gray-500">Nota: O painel considera todo o dinheiro que 'sobra' do seu rendimento menos os gastos registrados como potencial Poupança.</p>
+            </div>
+            <button onclick="closeInfoModal()" class="mt-6 w-full bg-indigo-600 text-white rounded-lg py-2 font-medium hover:bg-indigo-700 transition">Entendido</button>
+        </div>
+    </div>
+
+    <script>
+        // State management
+        let expenses = [];
+        let chartInstance = null;
+        
+        // Default categories mapped to 50/30/20 rules
+        const defaultCategories = {
+            'necessidade': ['Habitação/Renda', 'Supermercado', 'Eletricidade/Água/Gás', 'Saúde', 'Transporte/Combustível', 'Educação'],
+            'desejo': ['Restaurantes', 'Lazer/Cinema', 'Vestuário', 'Subscrições (Netflix, etc)', 'Viagens', 'Hobbies'],
+            'poupanca': ['Fundo de Emergência', 'Investimentos', 'Pagamento Dívida Extra', 'PPR']
+        };
+
+        // User defined categories per type
+        let customCategories = {
+            'necessidade': [],
+            'desejo': [],
+            'poupanca': []
+        };
+
+        // Colors for chart
+        const chartColors = [
+            '#ef4444', '#f97316', '#f59e0b', '#84cc16', '#22c55e', 
+            '#06b6d4', '#3b82f6', '#6366f1', '#8b5cf6', '#d946ef',
+            '#f43f5e', '#14b8a6', '#64748b', '#713f12', '#4c1d95'
+        ];
+
+        // Format currency helper
+        const formatEuro = (value) => {
+            return new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(value);
+        };
+
+        // Initialize App
+        document.addEventListener('DOMContentLoaded', () => {
+            updateCategoryOptions();
+            
+            // Add some sample data for demonstration (optional)
+            /*
+            expenses = [
+                { id: 1, desc: 'Renda', value: 800, type: 'necessidade', cat: 'Habitação/Renda' },
+                { id: 2, desc: 'Supermercado', value: 350, type: 'necessidade', cat: 'Supermercado' },
+                { id: 3, desc: 'Jantar fora', value: 85, type: 'desejo', cat: 'Restaurantes' },
+                { id: 4, desc: 'Transferência PPR', value: 200, type: 'poupanca', cat: 'PPR' }
+            ];
+            */
+            updateDashboard();
+        });
+
+        // Update category dropdown based on selected type
+        function updateCategoryOptions() {
+            const tipo = document.getElementById('tipo').value;
+            const select = document.getElementById('categoria');
+            select.innerHTML = '';
+            
+            // Combine default and custom categories
+            const allCats = [...defaultCategories[tipo], ...customCategories[tipo]];
+            
+            allCats.forEach(cat => {
+                const option = document.createElement('option');
+                option.value = cat;
+                option.textContent = cat;
+                select.appendChild(option);
+            });
+        }
+
+        function showNewCategoryInput() {
+            document.getElementById('categoria').parentElement.classList.add('hidden');
+            document.getElementById('newCategoryDiv').classList.remove('hidden');
+            document.getElementById('novaCategoria').focus();
+        }
+
+        function hideNewCategoryInput() {
+            document.getElementById('newCategoryDiv').classList.add('hidden');
+            document.getElementById('categoria').parentElement.classList.remove('hidden');
+            document.getElementById('novaCategoria').value = '';
+        }
+
+        function addNewCategory() {
+            const input = document.getElementById('novaCategoria');
+            const newCatName = input.value.trim();
+            const tipo = document.getElementById('tipo').value;
+            
+            if (newCatName) {
+                // Check if doesn't exist
+                if (!defaultCategories[tipo].includes(newCatName) && !customCategories[tipo].includes(newCatName)) {
+                    customCategories[tipo].push(newCatName);
+                    updateCategoryOptions();
+                    
+                    // Select the newly added option
+                    document.getElementById('categoria').value = newCatName;
+                }
+                hideNewCategoryInput();
+            }
+        }
+
+        // Add Expense
+        function addExpense(e) {
+            e.preventDefault();
+            
+            const desc = document.getElementById('descricao').value;
+            const value = parseFloat(document.getElementById('valor').value);
+            const tipo = document.getElementById('tipo').value;
+            const cat = document.getElementById('categoria').value;
+            
+            if (desc && value && cat) {
+                const expense = {
+                    id: Date.now(),
+                    desc: desc,
+                    value: value,
+                    type: tipo,
+                    cat: cat,
+                    date: new Date()
+                };
+                
+                expenses.push(expense);
+                
+                // Reset form slightly
+                document.getElementById('descricao').value = '';
+                document.getElementById('valor').value = '';
+                document.getElementById('descricao').focus();
+                
+                updateDashboard();
+            }
+        }
+
+        function deleteExpense(id) {
+            expenses = expenses.filter(e => e.id !== id);
+            updateDashboard();
+        }
+
+        // Main function to update everything
+        function updateDashboard() {
+            const rendimentoStr = document.getElementById('rendimento').value;
+            const rendimento = parseFloat(rendimentoStr) || 0;
+            
+            renderExpenseList();
+            updateCalculations(rendimento);
+            updateChart();
+            generateRecommendations(rendimento);
+        }
+
+        function renderExpenseList() {
+            const listContainer = document.getElementById('expenseList');
+            listContainer.innerHTML = '';
+            
+            if (expenses.length === 0) {
+                listContainer.innerHTML = '<div class="text-center text-gray-500 text-sm mt-10">Nenhum lançamento ainda. Adicione acima.</div>';
+                return;
+            }
+            
+            // Sort newest first
+            const sorted = [...expenses].sort((a, b) => b.id - a.id);
+            
+            sorted.forEach(exp => {
+                const typeColors = {
+                    'necessidade': 'border-red-400 bg-red-50 text-red-800',
+                    'desejo': 'border-yellow-400 bg-yellow-50 text-yellow-800',
+                    'poupanca': 'border-green-400 bg-green-50 text-green-800'
+                };
+                
+                const typeLabels = {
+                    'necessidade': 'N',
+                    'desejo': 'D',
+                    'poupanca': 'P'
+                };
+
+                const el = document.createElement('div');
+                el.className = 'fade-in flex justify-between items-center p-3 mb-2 bg-white border border-gray-100 rounded-lg shadow-sm hover:shadow-md transition-shadow group';
+                
+                el.innerHTML = `
+                    <div class="flex items-center gap-3 overflow-hidden">
+                        <div class="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs border ${typeColors[exp.type]}" title="Tipo: ${exp.type}">
+                            ${typeLabels[exp.type]}
+                        </div>
+                        <div class="min-w-0">
+                            <p class="text-sm font-semibold text-gray-800 truncate">${exp.desc}</p>
+                            <p class="text-xs text-gray-500 truncate">${exp.cat}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 flex-shrink-0">
+                        <span class="font-bold text-gray-700">${formatEuro(exp.value)}</span>
+                        <button onclick="deleteExpense(${exp.id})" class="text-gray-300 hover:text-red-500 transition-colors focus:outline-none opacity-0 group-hover:opacity-100">
+                            <i class="fas fa-trash-alt"></i>
+                        </button>
+                    </div>
+                `;
+                listContainer.appendChild(el);
+            });
+        }
+
+        function updateCalculations(rendimento) {
+            let totais = { 'necessidade': 0, 'desejo': 0, 'poupanca_direta': 0, total_gastos: 0 };
+            
+            expenses.forEach(e => {
+                if(e.type === 'poupanca') {
+                    totais.poupanca_direta += e.value;
+                } else {
+                    totais[e.type] += e.value;
+                }
+                // Poupança is not considered an 'expense' in the traditional sense of outgoing lost money, 
+                // but for the sake of cash flow tracking, we sum it to subtract from rendimento.
+                totais.total_gastos += e.value; 
+            });
+
+            // Calculate actual savings (Direcionado especificamente + Sobra do mês)
+            const gastosReais = totais.necessidade + totais.desejo;
+            const sobraMensal = Math.max(0, rendimento - gastosReais);
+            // Total savings is what you explicitly saved + whatever is left over
+            const poupancaTotal = (rendimento > 0) ? (totais.poupanca_direta + (rendimento - totais.total_gastos)) : totais.poupanca_direta;
+
+            // Prevent negative percentages if spending more than earning
+            const calcPct = (val) => rendimento > 0 ? ((val / rendimento) * 100).toFixed(1) : 0;
+            
+            const pctNec = calcPct(totais.necessidade);
+            const pctDes = calcPct(totais.desejo);
+            const pctPou = calcPct(poupancaTotal);
+
+            // Update UI elements
+            document.getElementById('totalGastosBadge').textContent = `Saídas Registradas: ${formatEuro(totais.total_gastos)}`;
+            
+            const saldo = rendimento - totais.total_gastos;
+            const saldoEl = document.getElementById('saldoAtual');
+            saldoEl.textContent = formatEuro(saldo);
+            saldoEl.className = `text-2xl font-bold ${saldo >= 0 ? 'text-indigo-900' : 'text-red-600'}`;
+
+            // Necessidades (Target 50%)
+            document.getElementById('valNecessidades').textContent = formatEuro(totais.necessidade);
+            document.getElementById('pctNecessidades').textContent = `(${pctNec}%)`;
+            const barNec = document.getElementById('barNecessidades');
+            barNec.style.width = `${Math.min(pctNec, 100)}%`;
+            barNec.className = `h-2.5 rounded-full ${pctNec > 50 ? 'bg-red-600' : 'bg-green-500'}`;
+            document.getElementById('statusNecessidades').textContent = pctNec > 50 ? `Acima do limite (excesso de ${formatEuro(totais.necessidade - (rendimento*0.5))})` : `Dentro do orçamento (restam ${formatEuro((rendimento*0.5) - totais.necessidade)})`;
+
+            // Desejos (Target 30%)
+            document.getElementById('valDesejos').textContent = formatEuro(totais.desejo);
+            document.getElementById('pctDesejos').textContent = `(${pctDes}%)`;
+            const barDes = document.getElementById('barDesejos');
+            barDes.style.width = `${Math.min(pctDes, 100)}%`;
+            barDes.className = `h-2.5 rounded-full ${pctDes > 30 ? 'bg-red-600' : 'bg-green-500'}`;
+            document.getElementById('statusDesejos').textContent = pctDes > 30 ? `Acima do limite (excesso de ${formatEuro(totais.desejo - (rendimento*0.3))})` : `Dentro do orçamento (restam ${formatEuro((rendimento*0.3) - totais.desejo)})`;
+
+            // Poupança (Target 20%)
+            // If negative total, savings is 0 visually
+            const displayPou = Math.max(0, poupancaTotal);
+            document.getElementById('valPoupanca').textContent = formatEuro(displayPou);
+            document.getElementById('pctPoupanca').textContent = `(${Math.max(0, pctPou)}%)`;
+            const barPou = document.getElementById('barPoupanca');
+            barPou.style.width = `${Math.min(Math.max(0, pctPou), 100)}%`;
+            barPou.className = `h-2.5 rounded-full ${pctPou < 20 ? 'bg-yellow-500' : 'bg-green-600'}`;
+            
+            if (rendimento <= 0) {
+                 document.getElementById('statusPoupanca').textContent = 'Defina um rendimento.';
+            } else if (pctPou < 20) {
+                 document.getElementById('statusPoupanca').textContent = `Abaixo da meta (faltam ${formatEuro((rendimento*0.2) - displayPou)})`;
+            } else {
+                 document.getElementById('statusPoupanca').textContent = `Meta atingida! Excelente.`;
+            }
+        }
+
+        function updateChart() {
+            const ctx = document.getElementById('categoryChart').getContext('2d');
+            const placeholder = document.getElementById('chartPlaceholder');
+            
+            // Only chart actual expenses (needs and wants), not savings/investments
+            const expensesOnly = expenses.filter(e => e.type !== 'poupanca');
+            
+            if (expensesOnly.length === 0) {
+                if (chartInstance) {
+                    chartInstance.destroy();
+                    chartInstance = null;
+                }
+                placeholder.classList.remove('hidden');
+                return;
+            }
+            
+            placeholder.classList.add('hidden');
+
+            // Aggregate by category
+            const catTotals = {};
+            expensesOnly.forEach(e => {
+                catTotals[e.cat] = (catTotals[e.cat] || 0) + e.value;
+            });
+
+            const labels = Object.keys(catTotals);
+            const data = Object.values(catTotals);
+            
+            // Sort for better visualization (biggest first)
+            const sortedIndices = data.map((v, i) => i).sort((a, b) => data[b] - data[a]);
+            const sortedLabels = sortedIndices.map(i => labels[i]);
+            const sortedData = sortedIndices.map(i => data[i]);
+
+            if (chartInstance) {
+                chartInstance.data.labels = sortedLabels;
+                chartInstance.data.datasets[0].data = sortedData;
+                chartInstance.update();
+            } else {
+                chartInstance = new Chart(ctx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: sortedLabels,
+                        datasets: [{
+                            data: sortedData,
+                            backgroundColor: chartColors.slice(0, sortedLabels.length),
+                            borderWidth: 2,
+                            borderColor: '#ffffff',
+                            hoverOffset: 4
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: {
+                            legend: {
+                                display: false // Hide default legend to save space
+                            },
+                            tooltip: {
+                                callbacks: {
+                                    label: function(context) {
+                                        let label = context.label || '';
+                                        if (label) {
+                                            label += ': ';
+                                        }
+                                        if (context.parsed !== null) {
+                                            label += new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(context.parsed);
+                                        }
+                                        return label;
+                                    }
+                                }
+                            }
+                        },
+                        cutout: '65%'
+                    }
+                });
+            }
+            
+            updateTopExpensesSummary(sortedLabels, sortedData);
+        }
+
+        function updateTopExpensesSummary(labels, data) {
+            const container = document.getElementById('topGastos');
+            container.innerHTML = '';
+            
+            if (labels.length === 0) {
+                container.innerHTML = '<span class="text-gray-400 italic">Sem dados suficientes.</span>';
+                return;
+            }
+
+            const total = data.reduce((a, b) => a + b, 0);
+            
+            // Show top 3
+            for(let i=0; i < Math.min(3, labels.length); i++) {
+                const pct = ((data[i] / total) * 100).toFixed(1);
+                container.innerHTML += `
+                    <div class="flex justify-between items-center">
+                        <span class="truncate pr-2"><span class="inline-block w-2 h-2 rounded-full mr-1" style="background-color: ${chartColors[i]}"></span>${labels[i]}</span>
+                        <span class="font-medium flex-shrink-0">${formatEuro(data[i])} <span class="text-gray-400 text-xs font-normal">(${pct}%)</span></span>
+                    </div>
+                `;
+            }
+        }
+
+        function generateRecommendations(rendimento) {
+            const recContainer = document.getElementById('recommendationsList');
+            recContainer.innerHTML = '';
+
+            if (rendimento <= 0) {
+                recContainer.innerHTML = `
+                    <div class="p-3 bg-blue-50 text-blue-800 rounded-lg text-sm border border-blue-100">
+                        <i class="fas fa-info-circle mr-1"></i> Defina o seu <strong>Rendimento Mensal</strong> no topo para ativar a análise.
+                    </div>`;
+                return;
+            }
+
+            if (expenses.length === 0) {
+                 recContainer.innerHTML = `
+                    <div class="p-3 bg-blue-50 text-blue-800 rounded-lg text-sm border border-blue-100">
+                        <i class="fas fa-magic mr-1"></i> Adicione os seus primeiros gastos à esquerda para que eu possa analisar o seu padrão de consumo.
+                    </div>`;
+                return;
+            }
+
+            let totais = { 'necessidade': 0, 'desejo': 0, 'poupanca': 0, total: 0 };
+            let despesasDescartaveis = []; // Store non-essential expenses for cut recommendations
+
+            expenses.forEach(e => {
+                totais[e.type] += e.value;
+                if(e.type !== 'poupanca') totais.total += e.value;
+                
+                if(e.type === 'desejo') {
+                    despesasDescartaveis.push(e);
+                }
+            });
+
+            const pctNec = (totais.necessidade / rendimento) * 100;
+            const pctDes = (totais.desejo / rendimento) * 100;
+            const saldo = rendimento - totais.total;
+            
+            let recommendations = [];
+
+            // Rule 1: Needs are too high
+            if (pctNec > 50) {
+                recommendations.push({
+                    type: 'danger',
+                    icon: 'fa-exclamation-triangle',
+                    text: `As suas <strong>Necessidades</strong> representam ${pctNec.toFixed(1)}% do seu rendimento (a meta é 50%). Tente renegociar contratos (telecomunicações, seguros) ou reduzir custos fixos.`
+                });
+            }
+
+            // Rule 2: Wants are too high
+            if (pctDes > 30) {
+                // Find top wants to cut
+                despesasDescartaveis.sort((a,b) => b.value - a.value);
+                let cutTip = '';
+                if(despesasDescartaveis.length > 0) {
+                    cutTip = ` Sugestão de corte temporário: <em>${despesasDescartaveis[0].desc} (${formatEuro(despesasDescartaveis[0].value)})</em> ou a categoria de <em>${despesasDescartaveis[0].cat}</em>.`;
+                }
+
+                recommendations.push({
+                    type: 'warning',
+                    icon: 'fa-cut',
+                    text: `Está a gastar ${pctDes.toFixed(1)}% em <strong>Desejos</strong> (meta: 30%). Isto compromete a sua capacidade de poupança.${cutTip}`
+                });
+            }
+
+            // Rule 3: Negative Balance
+            if (saldo < 0) {
+                recommendations.push({
+                    type: 'danger',
+                    icon: 'fa-skull-crossbones',
+                    text: `<strong>Alerta Crítico:</strong> Está a gastar mais ${formatEuro(Math.abs(saldo))} do que ganha este mês! Pause imediatamente despesas não essenciais.`
+                });
+            }
+
+            // Rule 4: Good Savings
+            const poupancaPotencial = (saldo > 0 ? saldo : 0) + totais.poupanca;
+            const pctPou = (poupancaPotencial / rendimento) * 100;
+            
+            if (pctPou >= 20 && saldo >= 0) {
+                 recommendations.push({
+                    type: 'success',
+                    icon: 'fa-star',
+                    text: `<strong>Parabéns!</strong> Está a cumprir a meta de investir/poupar pelo menos 20% do seu rendimento. Mantenha a disciplina.`
+                });
+            } else if (saldo > 0 && pctPou < 20) {
+                recommendations.push({
+                    type: 'info',
+                    icon: 'fa-piggy-bank',
+                    text: `Tem uma sobra de ${formatEuro(saldo)}. Considere transferir este valor agora mesmo para uma conta de poupança/investimento para atingir a meta dos 20%.`
+                });
+            }
+
+            // Render recommendations
+            if (recommendations.length === 0) {
+                 recContainer.innerHTML = `
+                    <div class="p-3 bg-green-50 text-green-800 rounded-lg text-sm border border-green-100">
+                        <i class="fas fa-check-circle mr-1"></i> As suas finanças parecem equilibradas por agora. Continue assim!
+                    </div>`;
+            } else {
+                recommendations.forEach(rec => {
+                    const styles = {
+                        'danger': 'bg-red-50 text-red-800 border-red-100',
+                        'warning': 'bg-amber-50 text-amber-800 border-amber-100',
+                        'success': 'bg-emerald-50 text-emerald-800 border-emerald-100',
+                        'info': 'bg-blue-50 text-blue-800 border-blue-100'
+                    };
+                    
+                    recContainer.innerHTML += `
+                        <div class="p-3 rounded-lg text-sm border ${styles[rec.type]} fade-in">
+                            <i class="fas ${rec.icon} mr-1 mb-1"></i> ${rec.text}
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        // Modal Logic
+        function showInfoModal() {
+            const modal = document.getElementById('infoModal');
+            const inner = modal.querySelector('div');
+            modal.classList.remove('hidden');
+            // Small delay to allow display:block to apply before animating opacity
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                inner.classList.remove('scale-95');
+                inner.classList.add('scale-100');
+            }, 10);
+        }
+
+        function closeInfoModal() {
+            const modal = document.getElementById('infoModal');
+            const inner = modal.querySelector('div');
+            modal.classList.add('opacity-0');
+            inner.classList.remove('scale-100');
+            inner.classList.add('scale-95');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+    </script>
+</body>
+</html>
